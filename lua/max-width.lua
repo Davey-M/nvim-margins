@@ -1,29 +1,58 @@
 vim.keymap.set("n", "<leader>m", ":messages<CR>")
 
-local M = {}
-
-local function draw_buffer(side, buffer_id)
-    vim.api.nvim_buf_set_lines(buffer_id, 0, -1, false, {}) -- clear the whole buffer
-
-    local width = vim.api.nvim_win_get_width(0)
-    local height = vim.api.nvim_win_get_height(0)
-    local text_height = math.floor(height / 2)
-    vim.api.nvim_buf_set_lines(buffer_id, text_height, text_height, false, { side, "width: "..width })
-    -- vim.api.nvim_buf_set_text(buffer_id, 5, left_side, 5, left_side, { side })
+local function create_array(length, value)
+    local output = {}
+    for i=1, length do
+        output[i] = value
+    end
+    return output
 end
 
-local default_options = {
-    max_width = 1000,
-    sidebar_width_percent = 25,
-    draw_buffer = draw_buffer,
+local function create_string(length)
+    local output = ""
+    for _=1, length do
+        output = output.." "
+    end
+    return output
+end
+
+local function get_draw_padding(side)
+    return function(buffer_id)
+        vim.api.nvim_buf_set_lines(buffer_id, 0, -1, false, {}) -- clear buffer
+
+        local width = vim.api.nvim_win_get_width(0)
+        local height = vim.api.nvim_win_get_height(0)
+
+        local display = side..", width: "..width..", height: "..height
+
+        local text_height = math.floor(height / 2)
+        local start = math.floor(width / 2) - math.floor(#display / 2)
+
+        vim.api.nvim_buf_set_lines(buffer_id, 0, 0, false, create_array(text_height - 1, ""))
+        vim.api.nvim_buf_set_lines(buffer_id, text_height, text_height, false, {
+            create_string(start)..display
+        })
+    end
+end
+
+local M = {
+    options = {
+        max_width = 150,
+        draw_left_padding = get_draw_padding("left"),
+        draw_right_padding = get_draw_padding("right"),
+    }
 }
 
-local state = {
-    left_buffer = nil,
-    left_window = nil,
-    right_buffer = nil,
-    right_window = nil,
-}
+local function get_tab_state()
+    return {
+        left_buffer = nil,
+        left_window = nil,
+        right_buffer = nil,
+        right_window = nil,
+    }
+end
+
+local state = get_tab_state()
 
 local function get_window_options(side)
     return {
@@ -44,7 +73,6 @@ local function create_sidebars()
 
     local current_window = vim.api.nvim_get_current_win()
     if current_window == nil then return "error: could not get the current window" end
-    -- print("current_window "..current_window)
 
     -- create buffers
 
@@ -84,19 +112,16 @@ local function close_sidebars()
     local windows = vim.api.nvim_tabpage_list_wins(0)
     local other_window = false
     for _, win in ipairs(windows) do
-        -- print(win)
         if win ~= state.left_window and win ~= state.right_window then
             other_window = true
             break
         end
     end
     if other_window == false then
-        -- print("closing windows")
         vim.api.nvim_win_close(state.left_window, true)
         vim.api.nvim_win_close(state.right_window, true)
         return
     end
-    -- print("not closing windows")
 end
 
 local function set_window_width()
@@ -106,43 +131,56 @@ local function set_window_width()
         if error ~= nil then return "error creating sidebars: "..error end
     end
 
-    close_sidebars()
-
-    -- get the percent
-    local percent = M.options.sidebar_width_percent;
-    if type(percent) ~= "number" then return "error: sidebar_width_percent must be a number between 0 and 50" end
-    if percent > 50 or percent < 0 then return "error: sidebars can't be more than 50% or less than 0% of the screen" end
-    local factor = percent * 0.01
+    -- TODO: this does not work
+    -- close_sidebars()
 
     -- calc the widths
     local columns = vim.o.columns
-    local window_columns = math.floor(columns * factor)
+    local window_columns = math.floor((columns - M.options.max_width) / 2)
+    if window_columns < 0 then window_columns = 0 end
+
+    -- set the size of the sidebars
 
     local error = nil
     error = vim.api.nvim_win_set_width(state.left_window, window_columns)
     if error ~= nil then return "error: could not set left window width" end
     vim.api.nvim_win_call(state.left_window, function()
-        M.options.draw_buffer("left", state.left_buffer, window_columns)
+        M.options.draw_left_padding (state.left_buffer)
     end)
 
     error = vim.api.nvim_win_set_width(state.right_window, window_columns)
     if error ~= nil then return "error: could not set right window width" end
     vim.api.nvim_win_call(state.right_window, function()
-        M.options.draw_buffer("right", state.right_buffer, window_columns)
+        M.options.draw_right_padding(state.right_buffer)
     end)
 end
 
+local function on_window_closed(window_id)
+    if window_id == state.right_window then
+        state.right_window = nil
+        state.right_buffer = nil
+    end
+
+    if window_id == state.left_window then
+        state.left_window = nil
+        state.left_buffer = nil
+    end
+end
+
 function M.setup(opts)
-    M.options = vim.tbl_deep_extend("force", default_options, opts or {})
+    M.options = vim.tbl_deep_extend("force", M.options, opts or {})
+
+    vim.api.nvim_create_autocmd({"WinClosed"}, {
+        callback = function(event)
+            on_window_closed(tonumber(event.file))
+        end
+    })
 
     -- setup autocmd for when window is resized
     vim.api.nvim_create_autocmd({"VimEnter", "VimResized" , "WinEnter", "WinClosed"}, {
-        callback = function(event)
-            -- print(vim.inspect(event))
+        callback = function()
             local error = create_sidebars()
             if error ~= nil then print("error creating sidebars\n"..error) end
-
-            -- print(vim.inspect(state))
 
             error = set_window_width()
             if error ~= nil then print("error setting window width\n"..error) end
