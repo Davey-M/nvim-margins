@@ -2,7 +2,7 @@ vim.keymap.set("n", "<leader>m", ":messages<CR>")
 
 local function create_array(length, value)
     local output = {}
-    for i=1, length do
+    for i = 1, length do
         output[i] = value
     end
     return output
@@ -10,8 +10,8 @@ end
 
 local function create_string(length)
     local output = ""
-    for _=1, length do
-        output = output.." "
+    for _ = 1, length do
+        output = output .. " "
     end
     return output
 end
@@ -23,14 +23,14 @@ local function get_draw_padding(side)
         local width = vim.api.nvim_win_get_width(0)
         local height = vim.api.nvim_win_get_height(0)
 
-        local display = side..", width: "..width..", height: "..height
+        local display = side .. ", width: " .. width .. ", height: " .. height
 
         local text_height = math.floor(height / 2)
         local start = math.floor(width / 2) - math.floor(#display / 2)
 
         vim.api.nvim_buf_set_lines(buffer_id, 0, 0, false, create_array(text_height - 1, ""))
         vim.api.nvim_buf_set_lines(buffer_id, text_height, text_height, false, {
-            create_string(start)..display
+            create_string(start) .. display
         })
     end
 end
@@ -61,7 +61,8 @@ local function get_window_options(side)
         style = "minimal",
         vertical = true,
         split = side,
-        noautocmd = true
+        noautocmd = true,
+        win = -1,
     }
 end
 
@@ -104,7 +105,7 @@ local function create_sidebars()
 
     -- don't select windows just created
     local success = vim.api.nvim_set_current_win(current_window)
-    if success == false then return "error: could not navigate to window: "..current_window end
+    if success == false then return "error: could not navigate to window: " .. current_window end
 end
 
 --- close the windows if the last user window was closed
@@ -129,11 +130,11 @@ local function get_first_row(layout)
 
     if layout[1] == "row" then
         -- remove window paddings
-        local temp_layout = { }
+        local temp_layout = {}
 
         for _, window in ipairs(layout[2]) do
             if window[2] ~= state.left_window and
-               window[2] ~= state.right_window
+                window[2] ~= state.right_window
             then
                 table.insert(temp_layout, window)
             end
@@ -178,7 +179,7 @@ local function set_window_width()
     -- create sidebars if they don't exist
     if state.left_window == nil or state.right_window == nil then
         local error = create_sidebars()
-        if error ~= nil then return "error creating sidebars: "..error end
+        if error ~= nil then return "error creating sidebars: " .. error end
     end
 
     -- TODO: this does not work
@@ -195,7 +196,7 @@ local function set_window_width()
     error = vim.api.nvim_win_set_width(state.left_window, window_columns)
     if error ~= nil then return "error: could not set left window width" end
     vim.api.nvim_win_call(state.left_window, function()
-        M.options.draw_left_padding (state.left_buffer)
+        M.options.draw_left_padding(state.left_buffer)
     end)
 
     error = vim.api.nvim_win_set_width(state.right_window, window_columns)
@@ -220,23 +221,22 @@ end
 function M.setup(opts)
     M.options = vim.tbl_deep_extend("force", M.options, opts or {})
 
-    vim.api.nvim_create_autocmd({"WinClosed"}, {
+    vim.api.nvim_create_autocmd({ "WinClosed" }, {
         callback = function(event)
             on_window_closed(tonumber(event.file))
         end
     })
 
     -- setup autocmd for when window is resized
-    vim.api.nvim_create_autocmd({"VimEnter", "VimResized" , "WinEnter", "WinClosed"}, {
+    vim.api.nvim_create_autocmd({ "VimEnter", "VimResized", "WinEnter", "WinClosed" }, {
         callback = function()
             local error = create_sidebars()
-            if error ~= nil then print("error creating sidebars\n"..error) end
+            if error ~= nil then print("error creating sidebars\n" .. error) end
 
             error = set_window_width()
-            if error ~= nil then print("error setting window width\n"..error) end
+            if error ~= nil then print("error setting window width\n" .. error) end
         end
     })
 end
 
 return M
-
