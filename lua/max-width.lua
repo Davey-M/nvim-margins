@@ -124,6 +124,56 @@ local function close_sidebars()
     end
 end
 
+local function get_first_row(layout)
+    if type(layout) ~= "table" then return nil end
+
+    if layout[1] == "row" then
+        -- remove window paddings
+        local temp_layout = { }
+
+        for _, window in ipairs(layout[2]) do
+            if window[2] ~= state.left_window and
+               window[2] ~= state.right_window
+            then
+                table.insert(temp_layout, window)
+            end
+        end
+
+        if #temp_layout == 1 then
+            layout = get_first_row(temp_layout)
+        else
+            layout[2] = temp_layout
+        end
+
+        return layout
+    end
+
+    if type(layout[1]) == "string" then
+        return get_first_row(layout[2])
+    end
+
+    for _, window in ipairs(layout) do
+        local row = get_first_row(window)
+        if row ~= nil then return row end
+    end
+
+    return nil
+end
+
+local function get_editor_width()
+    local layout = vim.fn.winlayout()
+
+    local row = get_first_row(layout)
+
+    -- get the number of splits
+    local splits = 1
+    if row ~= nil and row[1] == "row" then
+        splits = #row[2]
+    end
+
+    return M.options.max_width * splits
+end
+
 local function set_window_width()
     -- create sidebars if they don't exist
     if state.left_window == nil or state.right_window == nil then
@@ -136,7 +186,7 @@ local function set_window_width()
 
     -- calc the widths
     local columns = vim.o.columns
-    local window_columns = math.floor((columns - M.options.max_width) / 2)
+    local window_columns = math.floor((columns - get_editor_width()) / 2)
     if window_columns < 0 then window_columns = 0 end
 
     -- set the size of the sidebars
