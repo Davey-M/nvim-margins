@@ -228,7 +228,7 @@ function M.setup(opts)
     })
 
     -- setup autocmd for when window is resized
-    vim.api.nvim_create_autocmd({ "VimEnter", "VimResized", "WinEnter", "WinClosed" }, {
+    vim.api.nvim_create_autocmd({ "VimEnter", "VimResized", "WinEnter", "WinResized", "WinClosed" }, {
         callback = function()
             local error = create_sidebars()
             if error ~= nil then print("error creating sidebars\n" .. error) end
