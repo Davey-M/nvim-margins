@@ -1,3 +1,5 @@
+require('nvim-margins.utils.result')
+
 vim.keymap.set("n", "<leader>m", ":messages<CR>")
 
 local function create_array(length, value)
@@ -66,46 +68,65 @@ local function get_window_options(side)
     }
 end
 
+--- @return Result
 local function create_sidebars()
     -- escape if this setup is done already
     if state.left_window ~= nil and state.right_window ~= nil then
-        return nil
+        return Ok("Nothing to create")
     end
 
-    local current_window = vim.api.nvim_get_current_win()
-    if current_window == nil then return "error: could not get the current window" end
+    local current_window_result = Wrap(vim.api.nvim_get_current_win)
+    if current_window_result.is_error then return current_window_result end
 
     -- create buffers
 
     if state.left_buffer == nil then
-        local buf = vim.api.nvim_create_buf(false, true)
-        if buf == 0 then return "error: could not create left buffer" end
-        state.left_buffer = buf
+        local buf_result = Wrap(vim.api.nvim_create_buf, false, true)
+        buf_result:match(
+            function(value)
+                state.left_buffer = value
+            end,
+            function(error)
+                state.left_buffer = nil
+                print(error)
+            end
+        )
     end
 
     if state.right_buffer == nil then
-        local buf = vim.api.nvim_create_buf(false, true)
-        if buf == 0 then return "error: could not create right buffer" end
-        state.right_buffer = buf
+        local buf_result = Wrap(vim.api.nvim_create_buf, false, true)
+        buf_result:match(
+            function(value)
+                state.right_buffer = value
+            end,
+            function(error)
+                state.right_buffer = nil
+                print(error)
+            end
+        )
     end
 
     -- create windows
 
     if state.left_window == nil then
-        local window = vim.api.nvim_open_win(state.left_buffer, false, get_window_options("left"))
-        if window == 0 then return "error: could not create left window" end
-        state.left_window = window
+        local window_result = Wrap(vim.api.nvim_open_win, state.left_buffer, false, get_window_options("left"))
+        if window_result.is_error then return window_result end
+        state.left_window = window_result.value
     end
 
     if state.right_window == nil then
-        local window = vim.api.nvim_open_win(state.right_buffer, false, get_window_options("right"))
-        if window == 0 then return "error: could not create right window" end
-        state.right_window = window
+        local window_result = Wrap(vim.api.nvim_open_win, state.right_buffer, false, get_window_options("right"))
+        if window_result.is_error then return window_result end
+        state.right_window = window_result.value
     end
 
     -- don't select windows just created
-    local success = vim.api.nvim_set_current_win(current_window)
-    if success == false then return "error: could not navigate to window: " .. current_window end
+    current_window_result:match_ok(function(value)
+        local success = Wrap(vim.api.nvim_set_current_win, value)
+        if success.is_error then return success end
+    end)
+
+    return Ok("Success")
 end
 
 --- close the windows if the last user window was closed
@@ -230,11 +251,13 @@ function M.setup(opts)
     -- setup autocmd for when window is resized
     vim.api.nvim_create_autocmd({ "VimEnter", "VimResized", "WinEnter", "WinResized", "WinClosed" }, {
         callback = function()
-            local error = create_sidebars()
-            if error ~= nil then print("error creating sidebars\n" .. error) end
+            xpcall(function()
+                local create_sidebars_result = create_sidebars()
+                if create_sidebars_result.is_error then print("error creating sidebars:", create_sidebars_result.message) end
 
-            error = set_window_width()
-            if error ~= nil then print("error setting window width\n" .. error) end
+                local set_window_result = set_window_width()
+                if set_window_result ~= nil then print("error setting window width\n", set_window_result) end
+            end, function(error) print(error) end)
         end
     })
 end

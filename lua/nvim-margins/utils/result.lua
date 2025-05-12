@@ -22,15 +22,16 @@ function Result:new(is_error, value, message)
     end
 
     setmetatable(result, self)
+    self.__index = self
 
     return result
 end
 
 function Result:match(ok_callback, err_callback)
-    if self.is_error() then
-        return err_callback(self)
+    if self.is_error then
+        return err_callback(self.message)
     else
-        return ok_callback(self)
+        return ok_callback(self.value)
     end
 end
 
@@ -74,19 +75,25 @@ end
 --- @param ... any Arguments passed to func.
 --- @return Result
 function Wrap(func, ...)
-    local args = {...} -- has to be done this way because the inner function doesn't have access to ...
-    local output_value
-    local success, value = pcall(function()
-        output_value = table.pack(func(table.unpack(args)))
-    end)
+    local params = {...} -- has to be done this way because the inner function doesn't have access to ...
+    local output_value = nil
+    -- have to use unpack because neovim is on an older version of lua
+    local success, error = pcall(function() output_value = {func(unpack(params))} end)
+
+    print(vim.inspect(output_value))
 
     if success then
-        if #output_value > 1 then
-            return Ok(output_value)
-        else
+        if type(output_value) ~= "table" then return Err("Did not initialize output_value") end
+
+        if #output_value == 0 then
+            return Ok(nil)
+        elseif #output_value == 1 then
             return Ok(output_value[1])
+        else
+            return Ok(output_value)
         end
     else
-        return Err(value)
+        print(error)
+        return Err(error)
     end
 end
