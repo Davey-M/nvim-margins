@@ -51,6 +51,23 @@ function Result:match_err(callback)
     return nil
 end
 
+function Result:map(ok_callback, err_callback)
+    if self.is_error then return err_callback(self.message) end
+    return ok_callback(self.value)
+end
+
+function Result:map_ok(callback)
+    if self.is_error then return self end
+    return callback(self.value)
+end
+
+function Result:map_err(callback)
+    if self.is_error then
+        return callback(self.message)
+    end
+    return self
+end
+
 --- Create a Result in an ok state.
 ---
 --- @param value any The value of the ok.

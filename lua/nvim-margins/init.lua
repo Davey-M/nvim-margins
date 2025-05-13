@@ -68,8 +68,32 @@ local function get_window_options(side)
     }
 end
 
+--- close the windows if the last user window was closed
+---
+--- @return Result
+local function close_sidebars_if_exiting()
+    local windows = Wrap(vim.api.nvim_tabpage_list_wins, 0)
+    if windows.is_error then return windows end
+
+    local other_window = false
+    for _, win in ipairs(windows.value) do
+        if win ~= state.left_window and win ~= state.right_window then
+            other_window = true
+            break
+        end
+    end
+
+    if other_window == false then
+        return Wrap(os.exit)
+    end
+    return Ok()
+end
+
 --- @return Result
 local function create_sidebars()
+    local close_result = close_sidebars_if_exiting()
+    if close_result.is_error then return close_result end
+
     -- escape if this setup is done already
     if state.left_window ~= nil and state.right_window ~= nil then
         return Ok("Nothing to create")
@@ -127,23 +151,6 @@ local function create_sidebars()
     end)
 
     return Ok()
-end
-
---- close the windows if the last user window was closed
-local function close_sidebars()
-    local windows = vim.api.nvim_tabpage_list_wins(0)
-    local other_window = false
-    for _, win in ipairs(windows) do
-        if win ~= state.left_window and win ~= state.right_window then
-            other_window = true
-            break
-        end
-    end
-    if other_window == false then
-        vim.api.nvim_win_close(state.left_window, true)
-        vim.api.nvim_win_close(state.right_window, true)
-        return
-    end
 end
 
 --- @return table?
