@@ -146,6 +146,7 @@ local function close_sidebars()
     end
 end
 
+--- @return table?
 local function get_first_row(layout)
     if type(layout) ~= "table" then return nil end
 
@@ -182,10 +183,12 @@ local function get_first_row(layout)
     return nil
 end
 
+--- @return Result
 local function get_editor_width()
-    local layout = vim.fn.winlayout()
+    local layout_result = Wrap(vim.fn.winlayout)
+    if layout_result.is_error then return layout_result end
 
-    local row = get_first_row(layout)
+    local row = get_first_row(layout_result.value)
 
     -- get the number of splits
     local splits = 1
@@ -193,7 +196,7 @@ local function get_editor_width()
         splits = #row[2]
     end
 
-    return M.options.max_width * splits
+    return Ok(M.options.max_width * splits)
 end
 
 --- @return Result
@@ -206,7 +209,10 @@ local function set_window_width()
 
     -- calc the widths
     local columns = vim.o.columns
-    local window_columns = math.floor((columns - get_editor_width()) / 2)
+    local window_columns = 0
+    get_editor_width():match_ok(function(editor_width)
+        window_columns = math.floor((columns - editor_width) / 2)
+    end)
     if window_columns < 0 then window_columns = 0 end
 
     -- set the size of the sidebars
@@ -239,6 +245,8 @@ local function on_window_closed(window_id)
     end
 end
 
+--- Setup auto commands the plugin.
+---
 --- @return Result
 function M.setup(opts)
     local error
