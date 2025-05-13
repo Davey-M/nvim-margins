@@ -126,7 +126,7 @@ local function create_sidebars()
         if success.is_error then return success end
     end)
 
-    return Ok("Success")
+    return Ok()
 end
 
 --- close the windows if the last user window was closed
@@ -196,15 +196,13 @@ local function get_editor_width()
     return M.options.max_width * splits
 end
 
+--- @return Result
 local function set_window_width()
     -- create sidebars if they don't exist
     if state.left_window == nil or state.right_window == nil then
-        local error = create_sidebars()
-        if error ~= nil then return "error creating sidebars: " .. error end
+        local create_sidebars_result = create_sidebars()
+        if create_sidebars_result.is_error then return create_sidebars_result end
     end
-
-    -- TODO: this does not work
-    -- close_sidebars()
 
     -- calc the widths
     local columns = vim.o.columns
@@ -214,17 +212,19 @@ local function set_window_width()
     -- set the size of the sidebars
 
     local error = nil
-    error = vim.api.nvim_win_set_width(state.left_window, window_columns)
-    if error ~= nil then return "error: could not set left window width" end
-    vim.api.nvim_win_call(state.left_window, function()
-        M.options.draw_left_padding(state.left_buffer)
-    end)
+    error = Wrap(vim.api.nvim_win_set_width, state.left_window, window_columns)
+    if error.is_error then return error end
+    Wrap(vim.api.nvim_win_call, state.left_window, function()
+        Wrap(M.options.draw_left_padding, state.left_buffer):match_err(print)
+    end):match_err(print)
 
-    error = vim.api.nvim_win_set_width(state.right_window, window_columns)
-    if error ~= nil then return "error: could not set right window width" end
-    vim.api.nvim_win_call(state.right_window, function()
-        M.options.draw_right_padding(state.right_buffer)
-    end)
+    error = Wrap(vim.api.nvim_win_set_width, state.right_window, window_columns)
+    if error.is_error then return error end
+    Wrap(vim.api.nvim_win_call, state.right_window, function()
+        Wrap(M.options.draw_right_padding, state.right_buffer):match_err(print)
+    end):match_err(print)
+
+    return Ok()
 end
 
 local function on_window_closed(window_id)
@@ -239,27 +239,40 @@ local function on_window_closed(window_id)
     end
 end
 
+--- @return Result
 function M.setup(opts)
-    M.options = vim.tbl_deep_extend("force", M.options, opts or {})
+    local error
 
-    vim.api.nvim_create_autocmd({ "WinClosed" }, {
+    error = Wrap(vim.tbl_deep_extend, "force", M.options, opts or {})
+    if error.is_error then return error end
+    M.options = error.value
+
+    error = Wrap(vim.api.nvim_create_autocmd, { "WinClosed" }, {
         callback = function(event)
-            on_window_closed(tonumber(event.file))
+            Wrap(tonumber, event.file):match_ok(function(value)
+                on_window_closed(value)
+            end)
         end
     })
+    if error.is_error then return error end
 
     -- setup autocmd for when window is resized
-    vim.api.nvim_create_autocmd({ "VimEnter", "VimResized", "WinEnter", "WinResized", "WinClosed" }, {
+    error = Wrap(vim.api.nvim_create_autocmd, { "VimEnter", "VimResized", "WinEnter", "WinResized", "WinClosed" }, {
         callback = function()
-            xpcall(function()
-                local create_sidebars_result = create_sidebars()
-                if create_sidebars_result.is_error then print("error creating sidebars:", create_sidebars_result.message) end
+            local create_sidebars_result = create_sidebars()
+            create_sidebars_result:match_err(function(message)
+                print("error creating sidebars:", message)
+            end)
 
-                local set_window_result = set_window_width()
-                if set_window_result ~= nil then print("error setting window width\n", set_window_result) end
-            end, function(error) print(error) end)
+            local set_window_result = set_window_width()
+            set_window_result:match_err(function(message)
+                print("error setting window width:", message)
+            end)
         end
     })
+    if error.is_error then return error end
+
+    return Ok()
 end
 
 return M

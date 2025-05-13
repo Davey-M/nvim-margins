@@ -80,8 +80,6 @@ function Wrap(func, ...)
     -- have to use unpack because neovim is on an older version of lua
     local success, error = pcall(function() output_value = {func(unpack(params))} end)
 
-    print(vim.inspect(output_value))
-
     if success then
         if type(output_value) ~= "table" then return Err("Did not initialize output_value") end
 
@@ -97,3 +95,4 @@ function Wrap(func, ...)
         return Err(error)
     end
 end
+
