@@ -91,8 +91,9 @@ end
 
 --- @return Result
 local function create_sidebars()
-    local close_result = close_sidebars_if_exiting()
-    if close_result.is_error then return close_result end
+    -- TODO this won't work for multiple tabs
+    -- local close_result = close_sidebars_if_exiting()
+    -- if close_result.is_error then return close_result end
 
     -- escape if this setup is done already
     if state.left_window ~= nil and state.right_window ~= nil then
