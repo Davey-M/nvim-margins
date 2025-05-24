@@ -25,7 +25,7 @@ local function get_draw_padding(side)
         local width = vim.api.nvim_win_get_width(0)
         local height = vim.api.nvim_win_get_height(0)
 
-        local display = side .. ", width: " .. width .. ", height: " .. height
+        local display = side .. " | width: " .. width .. ", height: " .. height
 
         local text_height = math.floor(height / 2)
         local start = math.floor(width / 2) - math.floor(#display / 2)
@@ -34,6 +34,9 @@ local function get_draw_padding(side)
         vim.api.nvim_buf_set_lines(buffer_id, text_height, text_height, false, {
             create_string(start) .. display
         })
+
+        local hl_namespace = vim.api.nvim_create_namespace("Margin Highlights")
+        vim.highlight.range(buffer_id, hl_namespace, "Title", {text_height, start}, {text_height, start + #side})
     end
 end
 
