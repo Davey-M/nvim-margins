@@ -30,7 +30,7 @@ local function get_draw_padding(side)
         local text_height = math.floor(height / 2)
         local start = math.floor(width / 2) - math.floor(#display / 2)
 
-        vim.api.nvim_buf_set_lines(buffer_id, 0, 0, false, create_array(text_height - 1, ""))
+        vim.api.nvim_buf_set_lines(buffer_id, 0, 0, false, create_array(text_height, " "))
         vim.api.nvim_buf_set_lines(buffer_id, text_height, text_height, false, {
             create_string(start) .. display
         })
