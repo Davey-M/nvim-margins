@@ -19,6 +19,8 @@ local function create_string(length)
 end
 
 local function get_draw_padding(side)
+    local hl_namespace = vim.api.nvim_create_namespace("Margin Highlights")
+
     return function(buffer_id)
         vim.api.nvim_buf_set_lines(buffer_id, 0, -1, false, {}) -- clear buffer
 
@@ -35,7 +37,6 @@ local function get_draw_padding(side)
             create_string(start) .. display
         })
 
-        local hl_namespace = vim.api.nvim_create_namespace("Margin Highlights")
         vim.highlight.range(buffer_id, hl_namespace, "Title", {text_height, start}, {text_height, start + #side})
     end
 end
